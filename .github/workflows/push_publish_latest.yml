@@ -1,0 +1,94 @@
+name: Publish latest
+
+on:
+  push:
+    branches:
+      - "release/latest"
+
+env:
+  NODE_VERSION: 16.x
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: fregante/setup-git-user@v1
+
+      - uses: actions/setup-node@v2
+        with:
+          node-version: "${{ env.NODE_VERSION }}"
+          registry-url: https://npm.pkg.github.com/
+          always-auth: true
+          scope: ${{ github.repository_owner }}
+
+      - uses: pnpm/action-setup@v2.2.2
+        with:
+          version: 7.6.0
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
+
+      - uses: actions/cache@v2
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Get package version
+        id: package_version_str
+        uses: martinbeentjes/npm-get-version-action@master
+
+      - name: Check if tag exists for version '${{ steps.package_version_str.outputs.current-version }}'
+        uses: mukunku/tag-exists-action@v1.0.0
+        id: checkTag
+        with:
+          tag: "v${{ steps.package_version_str.outputs.current-version }}"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Exit if tag exists
+        if: ${{ steps.checkTag.outputs.exists == 'true' }}
+        run: exit 1
+
+      - name: Parse package version
+        id: pkgVersion
+        uses: doptools/action-parse-semver@main
+        with:
+          version: "${{ steps.package_version_str.outputs.current-version }}"
+          versionRegex: "(.*)"
+
+      - name: Init
+        run: pnpm i --ignore-scripts
+
+      - name: Publish Libraries
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: pnpm run release
+
+      - name: Create tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v5.5
+        with:
+          github_token: ${{ github.token }}
+          custom_tag: ${{ steps.pkgVersion.outputs.full }}
+
+      - name: Create release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          tag_name: v${{ steps.pkgVersion.outputs.full }}
+          name: Version ${{ steps.pkgVersion.outputs.full }}
+          body: |
+            Generated Release ${{ steps.pkgVersion.outputs.full }}
+          draft: false
+          prerelease: ${{ steps.pkgVersion.outputs.isPrerelease }}
