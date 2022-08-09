@@ -142,30 +142,7 @@ export class InstallerService {
     for (const i of list) {
       await this.buildInstallerRunListAdd(graph, i.id);
     }
-
     const order = depGraphToArray(graph);
-    console.log("ORDER:", order);
-
-    /*const runInstallers = await this.getListItems(list);
-    if (runInstallers.count() !== list.length) {
-      console.error("Installers were requested that do not exist. Cannot proceed.");
-      const missing = list.filter((i) => !runInstallers.any((inst) => inst.id === i.id)).map((i) => i.id);
-      console.error(missing);
-      throw new Error("Installers were requested that do not exist.");
-    }
-    const toRun: {
-      installer: Installer;
-      id: string;
-      required?: boolean | undefined;
-    }[] = [];
-
-    DepGraph
-    for (const i of runInstallers) {
-      this.buildInstallerRunListAdd(toRun, i);
-    }
-
-    return toRun;
-    */
     return order;
   }
   private async buildInstallerRunListAdd<T>(graph: DepGraph<PlatformInstaller>, id: string) {
@@ -186,43 +163,23 @@ export class InstallerService {
   }
 
   public async update(list: InstallItem[]): Promise<void> {
-    const i = await this.buildInstallerRunList(list);
-
-    /*const runInstallers = await this.getListItems(list);
-    if (runInstallers.count() !== list.length) {
-      console.error("Installers were requested that do not exist. Cannot proceed with update.");
-      const missing = list.filter((i) => !runInstallers.any((inst) => inst.id === i.id)).map((i) => i.id);
-      console.error(missing);
-      throw new Error("Installers were requested that do not exist.");
+    const installs = await this.buildInstallerRunList(list);
+    for (const inst of installs) {
+      await inst.update();
     }
-    for (const inst of runInstallers) {
-      await this.updateById(inst.id);
-    }*/
   }
 
   public async installOrUpdate(list: InstallItem[]): Promise<void> {
-    const runInstallers = await this.getListItems(list);
-    if (runInstallers.count() !== list.length) {
-      console.error("Installers were requested that do not exist. Cannot proceed with install.");
-      const missing = list.filter((i) => !runInstallers.any((inst) => inst.id === i.id)).map((i) => i.id);
-      console.error(missing);
-      throw new Error("Installers were requested that do not exist.");
-    }
-    for (const inst of runInstallers) {
-      await this.installOrUpdateById(inst.id);
+    const installs = await this.buildInstallerRunList(list);
+    for (const inst of installs) {
+      await inst.installOrUpdate();
     }
   }
 
   public async uninstall(list: InstallItem[]): Promise<void> {
-    const runInstallers = await this.getListItems(list);
-    if (runInstallers.count() !== list.length) {
-      console.error("Installers were requested that do not exist. Cannot proceed with uninstall.");
-      const missing = list.filter((i) => !runInstallers.any((inst) => inst.id === i.id)).map((i) => i.id);
-      console.error(missing);
-      throw new Error("Installers were requested that do not exist.");
-    }
-    for (const inst of runInstallers) {
-      await this.uninstallById(inst.id);
+    const installs = (await this.buildInstallerRunList(list)).reverse();
+    for (const inst of installs) {
+      await inst.uninstall();
     }
   }
 }
