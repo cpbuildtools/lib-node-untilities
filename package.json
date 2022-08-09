@@ -44,12 +44,15 @@
     "*": "prettier --write --ignore-unknown"
   },
   "dependencies": {
+    "@octokit/rest": "^19.0.3",
     "@types/node": "^18.6.1",
     "chalk": "^4.0.0",
     "cli-highlight": "^2.1.11",
     "dependency-graph": "^0.11.0",
     "fast-glob": "^3.2.11",
     "inquirer": "^8.0.2",
+    "is-docker": "^2.2.1",
+    "is-wsl": "^2.2.0",
     "linq": "^3.0.0",
     "simple-git": "^3.10.0",
     "ts-node": "^10.9.1",

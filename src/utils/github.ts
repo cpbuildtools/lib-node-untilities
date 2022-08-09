@@ -12,3 +12,13 @@ export async function configureGithubCli() {
   await exec(`gh config set git_protocol https -h github.com`);
   await exec(`gh auth setup-git`);
 }
+export async function clone(id: string, path?: string, cwd?: string) {
+  await exec(`gh repo clone ${id} ${path ?? ""}`, { cwd });
+}
+/*
+export async function searchRepos() {
+  const a = new Octokit({auth: process.env.GITHUB_TOKEN});
+
+  return await a.repos.listForAuthenticatedUser({type: 'all', });
+}
+*/
