@@ -3,7 +3,6 @@ import os from "os";
 import { Platform } from "./Platform";
 
 export function detectPlatform(): Platform {
-  console.log("os.platform()", os.platform());
   if (isWsl) {
     return Platform.WSL;
   }

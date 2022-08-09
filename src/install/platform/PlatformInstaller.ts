@@ -1,8 +1,8 @@
-import { Platform } from "./Platform";
-
 export interface PlatformInstaller {
-  id: string;
+  readonly id: string;
+  readonly args?: string;
   readonly isInstalled: Promise<boolean>;
+  readonly dependencies?: readonly string[];
   installOrUpdate(): Promise<void>;
   update(): Promise<void>;
   uninstall(): Promise<void>;

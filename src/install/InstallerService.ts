@@ -1,7 +1,9 @@
+import { DepGraph } from "dependency-graph";
 import glob from "fast-glob";
 import { existsSync } from "fs";
 import Enumerable from "linq";
 import path from "path/posix";
+import { depGraphToArray } from "../utils/dep_graph";
 import { Installer, isValidInstaller } from "./installer/Installer";
 import { InstallItem } from "./InstallItem";
 import { detectPlatform } from "./platform/detectPlatform";
@@ -79,7 +81,15 @@ export class InstallerService {
     );
   }
 
-  public async getPlatformInstallerById(id: string, forPlatform: KnownPlatforms) {
+  public async getPlatformInstallerById(id: string, forPlatform?: KnownPlatforms) {
+    if (!forPlatform) {
+      const detected = detectPlatform();
+      if (detected === Platform.UNKNOWN) {
+        throw new Error("Could not detect Platform");
+      }
+      forPlatform = detected;
+    }
+
     const platforms = (await this.getInstallerById(id, forPlatform))?.platforms;
     return typeof platforms === "function" ? platforms : platforms?.[forPlatform];
   }
@@ -90,7 +100,6 @@ export class InstallerService {
 
   private async createInstallerInstance(id: string): Promise<PlatformInstaller | undefined> {
     const platform = detectPlatform();
-    console.log("platform", platform);
     if (platform === Platform.UNKNOWN) {
       return undefined;
     }
@@ -112,9 +121,7 @@ export class InstallerService {
     await inst?.uninstall();
   }
   public async updateById(id: string): Promise<void> {
-    console.log("updateById", id);
     const inst = await this.createInstallerInstance(id);
-    console.log("inst", inst);
     await inst?.update();
   }
 
@@ -130,8 +137,58 @@ export class InstallerService {
     );
   }
 
+  private async buildInstallerRunList(list: InstallItem[]) {
+    const graph = new DepGraph<PlatformInstaller>();
+    for (const i of list) {
+      await this.buildInstallerRunListAdd(graph, i.id);
+    }
+
+    const order = depGraphToArray(graph);
+    console.log("ORDER:", order);
+
+    /*const runInstallers = await this.getListItems(list);
+    if (runInstallers.count() !== list.length) {
+      console.error("Installers were requested that do not exist. Cannot proceed.");
+      const missing = list.filter((i) => !runInstallers.any((inst) => inst.id === i.id)).map((i) => i.id);
+      console.error(missing);
+      throw new Error("Installers were requested that do not exist.");
+    }
+    const toRun: {
+      installer: Installer;
+      id: string;
+      required?: boolean | undefined;
+    }[] = [];
+
+    DepGraph
+    for (const i of runInstallers) {
+      this.buildInstallerRunListAdd(toRun, i);
+    }
+
+    return toRun;
+    */
+    return order;
+  }
+  private async buildInstallerRunListAdd<T>(graph: DepGraph<PlatformInstaller>, id: string) {
+    const installerClass = await this.getPlatformInstallerById(id);
+    if (!installerClass) {
+      throw new Error(`Could not find installer with id "${id}"`);
+    }
+
+    const inst = new installerClass();
+    graph.addNode(id, inst);
+
+    if (inst.dependencies?.length) {
+      for (const dep of inst.dependencies) {
+        await this.buildInstallerRunListAdd(graph, dep);
+        graph.addDependency(id, dep);
+      }
+    }
+  }
+
   public async update(list: InstallItem[]): Promise<void> {
-    const runInstallers = await this.getListItems(list);
+    const i = await this.buildInstallerRunList(list);
+
+    /*const runInstallers = await this.getListItems(list);
     if (runInstallers.count() !== list.length) {
       console.error("Installers were requested that do not exist. Cannot proceed with update.");
       const missing = list.filter((i) => !runInstallers.any((inst) => inst.id === i.id)).map((i) => i.id);
@@ -140,7 +197,7 @@ export class InstallerService {
     }
     for (const inst of runInstallers) {
       await this.updateById(inst.id);
-    }
+    }*/
   }
 
   public async installOrUpdate(list: InstallItem[]): Promise<void> {

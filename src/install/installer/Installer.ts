@@ -5,6 +5,7 @@ import { InstallerPlatforms } from "./InstallerPlatforms";
 export interface Installer {
   id: string;
   name: string;
+  categories: string[];
   platforms: Class<PlatformInstaller> | InstallerPlatforms;
 }
 
